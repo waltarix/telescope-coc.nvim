@@ -52,12 +52,12 @@ local locations_to_items = function(locs)
     local filename = vim.uri_to_fname(l.uri)
     local row = l.range.start.line
     local line = (api.nvim_buf_get_lines(bufnr, row, row + 1, false) or { '' })[1]
-    items[#items + 1] = {
+    table.insert(items, {
       filename = filename,
       lnum = row + 1,
       col = l.range.start.character + 1,
       text = line,
-    }
+    })
   end
 
   return items
@@ -84,7 +84,7 @@ local mru = function(opts)
     local lowerPrefix = val:sub(1, #cwd):gsub(Path.path.sep, ''):lower()
     local lowerCWD = cwd:gsub(Path.path.sep, ''):lower()
     if lowerCWD == lowerPrefix and p:exists() and p:is_file() then
-      results[#results + 1] = val:sub(#cwd + 1)
+      table.insert(results, val:sub(#cwd + 1))
     end
   end
 
@@ -136,11 +136,11 @@ local links = function(opts)
 
   local results = {}
   for _, l in ipairs(res) do
-    results[#results + 1] = {
+    table.insert(results, {
       lnum = l.range.start.line + 1,
       col = l.range.start.character,
       text = l.target,
-    }
+    })
   end
 
   pickers.new(opts, {
@@ -393,13 +393,13 @@ local document_symbols = function(opts)
 
   local results = {}
   for _, s in ipairs(symbols) do
-    results[#results + 1] = {
+    table.insert(results, {
       filename = api.nvim_buf_get_name(current_buf),
       lnum = s.lnum,
       col = s.col,
       kind = s.kind,
       text = string.format('[%s] %s', s.kind, s.text),
-    }
+    })
   end
 
   opts.ignore_filename = opts.ignore_filename or true
@@ -427,13 +427,13 @@ local function get_workspace_symbols_requester()
     for _, s in ipairs(symbols) do
       local filename = vim.uri_to_fname(s.location.uri)
       local kind = vim.lsp.protocol.SymbolKind[s.kind] or 'Unknown'
-      results[#results + 1] = {
+      table.insert(results, {
         filename = filename,
         lnum = s.location.range.start.line + 1,
         col = s.location.range.start.character + 1,
         kind = kind,
         text = string.format('[%s] %s', kind, s.name),
-      }
+      })
     end
     return results
   end
@@ -485,7 +485,7 @@ local diagnostics = function(opts)
       d.severity = 'Warn'
     end
     if opts.get_all or (d.file == current_filename) then
-      results[#results + 1] = {
+      table.insert(results, {
         bufnr = buf_names[d.file] or current_buf,
         filename = d.file,
         lnum = d.lnum,
@@ -494,8 +494,16 @@ local diagnostics = function(opts)
         finish = d.location.range['end'],
         text = vim.trim(d.message:gsub('[\n]', '')),
         type = d.severity:upper(),
-      }
+      })
     end
+  end
+
+  if vim.tbl_isempty(results) then
+    utils.notify('extensions.coc.diagnostics', {
+      msg = 'There is no diagnostics',
+      level = 'INFO',
+    })
+    return
   end
 
   opts.path_display = F.if_nil(opts.path_display, 'hidden')
